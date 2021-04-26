@@ -1,12 +1,13 @@
 ﻿using System.Collections.Generic;
+using FakeItEasy;
+using FluentAssertions;
 using NUnit.Framework;
 
 namespace MockFramework
 {
     public class ThingCache
     {
-        private readonly IDictionary<string, Thing> dictionary
-            = new Dictionary<string, Thing>();
+        private readonly IDictionary<string, Thing> dictionary = new Dictionary<string, Thing>();
         private readonly IThingService thingService;
 
         public ThingCache(IThingService thingService)
@@ -28,7 +29,6 @@ namespace MockFramework
         }
     }
 
-    [TestFixture]
     public class ThingCache_Should
     {
         private IThingService thingService;
@@ -40,21 +40,70 @@ namespace MockFramework
         private const string thingId2 = "CoolBoots";
         private Thing thing2 = new Thing(thingId2);
 
-        // Метод, помеченный атрибутом SetUp, выполняется перед каждым тестов
         [SetUp]
         public void SetUp()
         {
-            //thingService = A...
+            thingService = A.Fake<IThingService>();
             thingCache = new ThingCache(thingService);
         }
 
-        // TODO: Написать простейший тест, а затем все остальные
-        // Live Template tt работает!
-
-        // Пример теста
         [Test]
-        public void GiveMeAGoodNamePlease()
+        public void ReturnsNull_WhenIdNotExists()
         {
+            Thing thing;
+            A.CallTo(() => thingService.TryRead("1", out thing)).Returns(false);
+
+            thingCache.Get("1").Should().BeNull();
+        }
+
+        [Test]
+        public void ReturnsThing_WhenIdExists()
+        {
+            A.CallTo(() => thingService.TryRead("1", out thing1)).Returns(true);
+
+            thingCache.Get("1").Should().Be(thing1);
+        }
+
+        [Test]
+        public void HappenedOnce_WhenCalled()
+        {
+            A.CallTo(() => thingService.TryRead("1", out thing1)).Returns(true);
+
+            thingCache.Get("1");
+            thingCache.Get("1");
+
+            A.CallTo(() => thingService.TryRead("1", out thing1)).MustHaveHappenedOnceExactly();
+        }
+
+        [Test]
+        public void NotHappened_WhenWrongId()
+        {
+            A.CallTo(() => thingService.TryRead("1", out thing1)).Returns(true);
+
+            thingCache.Get("1");
+
+            A.CallTo(() => thingService.TryRead("2", out thing1)).MustNotHaveHappened();
+        }
+
+        [Test]
+        public void ReturnsAllThings_WhenCalled()
+        {
+            A.CallTo(() => thingService.TryRead("1", out thing1)).Returns(true);
+            A.CallTo(() => thingService.TryRead("2", out thing2)).Returns(true);
+
+            thingCache.Get("1").Should().Be(thing1);
+            thingCache.Get("2").Should().Be(thing2);
+        }
+
+        [Test]
+        public void ReturnsEqualThings_WhenCalledTwoTimes()
+        {
+            A.CallTo(() => thingService.TryRead("1", out thing1)).Returns(true);
+
+            var firstThing = thingCache.Get("1");
+            var secondThing = thingCache.Get("1");
+
+            firstThing.Should().BeEquivalentTo(secondThing);
         }
 
         /** Проверки в тестах
